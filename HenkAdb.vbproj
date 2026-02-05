@@ -6,9 +6,9 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{0097FF52-2C3E-4750-B35A-6A4FAA2EB4E8}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <StartupObject>CommDay.My.MyApplication</StartupObject>
-    <RootNamespace>CommDay</RootNamespace>
-    <AssemblyName>CommDay</AssemblyName>
+    <StartupObject>HenkAdb.My.MyApplication</StartupObject>
+    <RootNamespace>HenkAdb</RootNamespace>
+    <AssemblyName>HenkAdb</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <MyType>WindowsForms</MyType>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
@@ -22,7 +22,7 @@
     <DefineDebug>true</DefineDebug>
     <DefineTrace>true</DefineTrace>
     <OutputPath>bin\Debug\</OutputPath>
-    <DocumentationFile>CommDay.xml</DocumentationFile>
+    <DocumentationFile>HenkAdb.xml</DocumentationFile>
     <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -32,7 +32,7 @@
     <DefineTrace>true</DefineTrace>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DocumentationFile>CommDay.xml</DocumentationFile>
+    <DocumentationFile>HenkAdb.xml</DocumentationFile>
     <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
@@ -74,6 +74,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AdbHelper.vb" />
+    <Compile Include="AddCoord.Designer.vb">
+      <DependentUpon>AddCoord.vb</DependentUpon>
+    </Compile>
+    <Compile Include="AddCoord.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="HenkAdb.vb" />
     <Compile Include="Start.vb">
       <SubType>Form</SubType>
     </Compile>
@@ -99,6 +106,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="AddCoord.resx">
+      <DependentUpon>AddCoord.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Start.resx">
       <DependentUpon>Start.vb</DependentUpon>
     </EmbeddedResource>

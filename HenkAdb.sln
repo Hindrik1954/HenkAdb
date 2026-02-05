@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36811.4 d17.14
+VisualStudioVersion = 17.14.36811.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "CommDay", "CommDay.vbproj", "{0097FF52-2C3E-4750-B35A-6A4FAA2EB4E8}"
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "HenkAdb", "HenkAdb.vbproj", "{0097FF52-2C3E-4750-B35A-6A4FAA2EB4E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
