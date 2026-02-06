@@ -2,7 +2,7 @@
 Imports System.Runtime.InteropServices
 Imports System.IO
 Public Class HenkAdb
-
+    Private oldCoordText As String = ""
     Private Sub CommDay_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         ' EERST ADB INITIALISEREN
         AdbHelper.InitializeAdbPath()
@@ -13,13 +13,11 @@ Public Class HenkAdb
         btnAllDevices.ForeColor = Color.White
         btnCopyVanClipboard.BackColor = Color.Blue
         btnCopyVanClipboard.ForeColor = Color.White
-        tbVorigeCoord.Visible = False
-        lblVorigeCoord.Visible = False
+        btnToestellen.BackColor = Color.Orange
+        btnToestellen.ForeColor = Color.Black
         ' NIEUW: bekende coördinaten laden
         LoadKnownCoords()
     End Sub
-
-
     Private Sub LoadDevices()
         dgvDevices.Rows.Clear()
         If dgvDevices.Columns("Select") Is Nothing Then
@@ -99,6 +97,23 @@ Public Class HenkAdb
         Next
 
     End Sub
+    Private Sub btnToestellen_Click(sender As Object, e As EventArgs) Handles btnToestellen.Click
+        Dim f As New Toestellen()
+
+        ' Positioneer ONDER btnToestellen (zoals AddCoord!)
+        Dim btnBounds = btnToestellen.Bounds
+        f.StartPosition = FormStartPosition.Manual
+        f.Location = New Point(
+        Me.PointToScreen(btnToestellen.Location).X,
+        Me.PointToScreen(btnToestellen.Location).Y + btnBounds.Height + 10
+    )
+
+        f.ShowDialog(Me)    ' ← Modal (blokkeert tot sluiten)
+        LoadDevices()       ' ← Herlaad devices na connect/disconnect
+    End Sub
+
+
+
     Private Sub CopyVanClipboard_Click(sender As Object, e As EventArgs) Handles btnCopyVanClipboard.Click
         Try
             tbCoordinaten.Text = Clipboard.GetText().Trim()
@@ -140,11 +155,6 @@ Public Class HenkAdb
             End If
         End Using
     End Sub
-
-
-
-    Private oldCoordText As String = ""
-
     Private Function CalculateDistance(lat1 As Double, lon1 As Double, lat2 As Double, lon2 As Double) As Double
         Dim R = 6371.0
         Dim dLat = DegToRad(lat2 - lat1)
@@ -160,6 +170,7 @@ Public Class HenkAdb
         Return degrees * Math.PI / 180.0
     End Function
 
+    ' Bovenin de class:
     Private Function ParseCoord(coordText As String) As (lat As Double, lon As Double, isValid As Boolean)
         Try
             coordText = coordText.Trim()
@@ -167,14 +178,11 @@ Public Class HenkAdb
             If commaIndex > 0 AndAlso commaIndex < coordText.Length - 1 Then
                 Dim latStr = coordText.Substring(0, commaIndex).Trim()
                 Dim lonStr = coordText.Substring(commaIndex + 1).Trim()
-
                 ' Replace comma met punt voor Double (NL fix)
                 latStr = latStr.Replace(",", ".")
                 lonStr = lonStr.Replace(",", ".")
-
                 Dim lat = Double.Parse(latStr, System.Globalization.CultureInfo.InvariantCulture)
                 Dim lon = Double.Parse(lonStr, System.Globalization.CultureInfo.InvariantCulture)
-
                 Return (lat, lon, True)
             End If
         Catch
@@ -183,24 +191,21 @@ Public Class HenkAdb
         Return (0, 0, False)
     End Function
 
-
     Private Sub tbCoordinaten_TextChanged(sender As Object, e As EventArgs) Handles tbCoordinaten.TextChanged
-        If tbCoordinaten.Text <> oldCoordText AndAlso Not String.IsNullOrEmpty(oldCoordText) Then
-            tbVorigeCoord.Text = oldCoordText.Trim()
-        End If
-        oldCoordText = tbCoordinaten.Text
+        ' Update oldCoordText NA berekening (voor eerste keer wordt het 0km)
         UpdateDistance()
+        oldCoordText = tbCoordinaten.Text  ' ← NU bijwerken
     End Sub
+
     Private Sub UpdateDistance()
         Dim current = ParseCoord(tbCoordinaten.Text.Trim())
-        Dim previous = ParseCoord(tbVorigeCoord.Text.Trim())
+        Dim previous = ParseCoord(oldCoordText.Trim())  ' ← NU direct uit geheugen
 
         If current.isValid AndAlso previous.isValid Then
             Dim distance = CalculateDistance(current.lat, current.lon, previous.lat, previous.lon)
             lblKm.Text = distance.ToString("F2") + " km"
             lblKm.ForeColor = Color.Blue
 
-            ' NIEUW: Cooldown lookup
             Dim cooldown = GetCooldownTime(distance)
             lblCdTijd.Text = cooldown
             lblCdTijd.ForeColor = Color.Green
@@ -211,6 +216,7 @@ Public Class HenkAdb
             lblCdTijd.ForeColor = Color.Gray
         End If
     End Sub
+
     Private Function GetCooldownTime(distanceKm As Double) As String
         ' Jouw EXACTE tabel Afstand;Cooldown
         Dim cooldownTable = {
