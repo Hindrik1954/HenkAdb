@@ -1,23 +1,55 @@
 ﻿Imports System.Diagnostics
 Imports System.Runtime.InteropServices
 Imports System.IO
+Imports System.Threading
 Public Class HenkAdb
     Private oldCoordText As String = ""
+    Private ini As IniFile
     Private Sub CommDay_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Dim iniPath = Path.Combine(Application.StartupPath, "settings.ini")
+        ini = New IniFile(iniPath)
+        LoadFormPosition(Me, ini)
+
+        Logger.Log("=== APP STARTED ===")
+
+        Logger.Log("App gestart - Cleanup logs uitgevoerd")
+
+        ' HISTORIE OPSCHONEN: records ouder dan 2 dagen zonder omschrijving verwijderen
+        CleanupHistorie()
+
         ' EERST ADB INITIALISEREN
         AdbHelper.InitializeAdbPath()
         LoadDevices()
 
+        ' DEBUG/RELEASE titel + versie
+        Dim baseTitle As String
+#If DEBUG Then
+        baseTitle = "HenkAdb acceptatie"
+#Else
+        baseTitle = "HenkAdb"
+#End If
+        Me.Text = baseTitle & " v" & System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(3)
+
         ' GROEN MAKEN BIJ START
-        btnAllDevices.BackColor = Color.Green
-        btnAllDevices.ForeColor = Color.White
+        btnStart.BackColor = Color.Green
+        btnStart.ForeColor = Color.White
         btnCopyVanClipboard.BackColor = Color.Blue
         btnCopyVanClipboard.ForeColor = Color.White
         btnToestellen.BackColor = Color.Orange
         btnToestellen.ForeColor = Color.Black
         ' NIEUW: bekende coördinaten laden
         LoadKnownCoords()
+
     End Sub
+    Private Sub VangTabel_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        If ini Is Nothing Then
+            Dim iniPath = Path.Combine(Application.StartupPath, "settings.ini")
+            ini = New IniFile(iniPath)
+        End If
+
+        SaveFormPosition(Me, ini)
+    End Sub
+
     Private Sub LoadDevices()
         dgvDevices.Rows.Clear()
         If dgvDevices.Columns("Select") Is Nothing Then
@@ -70,63 +102,163 @@ Public Class HenkAdb
         If dgvDevices.IsCurrentCellInEditMode Then dgvDevices.CommitEdit(DataGridViewDataErrorContexts.Commit)
     End Sub
 
-    Private Sub btnAllDevices_Click(sender As Object, e As EventArgs) Handles btnAllDevices.Click
+    Private Sub btnStart_Click(sender As Object, e As EventArgs) Handles btnStart.Click
+        Logger.Log("=== btnStart CLICKED ===")
         Dim inputText As String = tbCoordinaten.Text.Trim()
         If String.IsNullOrWhiteSpace(inputText) Then
-            MessageBox.Show("Vul coördinaat of routenaam in.")
+            Logger.Log("Empty input - abort")
+            MessageBox.Show("Vul coordinaat of routenaam in.")
             tbCoordinaten.Focus()
+            Return
+        End If
+
+        Dim devices = AdbHelper.GetDevices() ' ← Logt automatisch
+        If devices.Count = 0 Then
+            Logger.Log("NO DEVICES CONNECTED - ABORT", "ERROR")
+            MessageBox.Show("Geen devices gekoppeld! Sluit USB debug aan.")
             Return
         End If
 
         Dim parts = inputText.Split(","c)
         Dim succesvol = 0
+        Dim totalChecked = 0
 
+        ' Eerst tellen welke devices geselecteerd zijn
+        Dim selectedDevices As New List(Of String)
         For Each row As DataGridViewRow In dgvDevices.Rows
             If row.Cells("Select").Value = True Then
                 Dim deviceId As String = row.Cells("DeviceID").Value.ToString()
-                Try
-                    If parts.Length = 2 Then
-                        SendTeleportToDevice(deviceId, parts(0).Trim(), parts(1).Trim())
-                    Else
-                        SendRouteToDevice(deviceId, inputText)
-                    End If
-                    succesvol += 1
-                Catch
-                End Try
+                selectedDevices.Add(deviceId)
             End If
         Next
+        totalChecked = selectedDevices.Count
 
+        If totalChecked = 0 Then
+            MessageBox.Show("Geen devices geselecteerd.")
+            Return
+        End If
+
+        ' Als het route is (geen coordinaat) gewoon 1x sturen zoals eerst
+        If parts.Length <> 2 Then
+            For Each deviceId In selectedDevices
+                Logger.Log($"Sending ROUTE '{inputText}' to {deviceId}")
+                Try
+                    AdbHelper.SendRouteToDevice(deviceId, inputText)
+                    succesvol += 1
+                    Logger.Log($"✓ SUCCESS {deviceId}")
+                Catch ex As Exception
+                    Logger.LogError(ex, $"Send to {deviceId}")
+                End Try
+            Next
+        Else
+            ' Coördinaat: A -> offset -> A, steeds voor ALLE devices tegelijk
+            Dim lat As String = parts(0).Trim()
+            Dim lon As Double = Double.Parse(parts(1).Trim(), Globalization.CultureInfo.InvariantCulture)
+            Dim lonOrig As String = lon.ToString(Globalization.CultureInfo.InvariantCulture)
+            Dim lonOffset As String = (lon + 0.00001).ToString(Globalization.CultureInfo.InvariantCulture)
+
+            ' Stap 1: alle devices naar A
+            For Each deviceId In selectedDevices
+                Logger.Log($"Step 1 (A) '{lat},{lonOrig}' to {deviceId}")
+                Try
+                    AdbHelper.SendTeleportToDevice(deviceId, lat, lonOrig)
+                Catch ex As Exception
+                    Logger.LogError(ex, $"Step1 to {deviceId}")
+                End Try
+            Next
+            Threading.Thread.Sleep(200)
+
+            ' Stap 2: alle devices naar A+offset
+            For Each deviceId In selectedDevices
+                Logger.Log($"Step 2 (A+offset) '{lat},{lonOffset}' to {deviceId}")
+                Try
+                    AdbHelper.SendTeleportToDevice(deviceId, lat, lonOffset)
+                Catch ex As Exception
+                    Logger.LogError(ex, $"Step2 to {deviceId}")
+                End Try
+            Next
+            Threading.Thread.Sleep(200)
+
+            ' Stap 3: alle devices terug naar A
+            For Each deviceId In selectedDevices
+                Logger.Log($"Step 3 (A) '{lat},{lonOrig}' to {deviceId}")
+                Try
+                    AdbHelper.SendTeleportToDevice(deviceId, lat, lonOrig)
+                    succesvol += 1 ' eindstatus gelukt
+                    Logger.Log($"✓ SUCCESS {deviceId}")
+                Catch ex As Exception
+                    Logger.LogError(ex, $"Step3 to {deviceId}")
+                End Try
+            Next
+        End If
+
+        Logger.Log($"btnStart FINISHED: {succesvol}/{totalChecked} success, {devices.Count} total devices")
+        Dim historiePath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "Historie.txt")
+        Dim logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}|{inputText}|"
+        File.AppendAllText(historiePath, logLine & Environment.NewLine)
+        Logger.Log($"Historie toegevoegd: {logLine.TrimEnd()}")
     End Sub
+
+
     Private Sub btnToestellen_Click(sender As Object, e As EventArgs) Handles btnToestellen.Click
         Dim f As New Toestellen()
 
-        ' Positioneer ONDER btnToestellen (zoals AddCoord!)
         Dim btnBounds = btnToestellen.Bounds
+        Dim btnScreenLoc = Me.PointToScreen(btnToestellen.Location)
+
         f.StartPosition = FormStartPosition.Manual
-        f.Location = New Point(
-        Me.PointToScreen(btnToestellen.Location).X,
-        Me.PointToScreen(btnToestellen.Location).Y + btnBounds.Height + 10
-    )
 
-        f.ShowDialog(Me)    ' ← Modal (blokkeert tot sluiten)
-        LoadDevices()       ' ← Herlaad devices na connect/disconnect
+        ' BOVEN de knop: Y = knopY - formHoogte - marge
+        Dim marge As Integer = 10
+        Dim x As Integer = btnScreenLoc.X
+        Dim y As Integer = btnScreenLoc.Y - f.Height - marge
+
+        ' Optioneel: voorkomen dat hij boven het scherm uit komt
+        If y < 0 Then y = 0
+
+        f.Location = New Point(x, y)
+
+        f.ShowDialog(Me)
+        LoadDevices()
     End Sub
-
-
 
     Private Sub CopyVanClipboard_Click(sender As Object, e As EventArgs) Handles btnCopyVanClipboard.Click
         Try
-            tbCoordinaten.Text = Clipboard.GetText().Trim()
+            Dim clip As String = Clipboard.GetText().Trim()
+            If String.IsNullOrWhiteSpace(clip) Then
+                MessageBox.Show("Klembord is leeg.")
+                Return
+            End If
+
+            ' URL → coördinaten halen
+            If BegintMetHttps(clip) Then
+                clip = HaalCoördinatenUitURL(clip)
+            End If
+
+            ' Trim coördinaten OF laat route-tekst intact
+            Dim coord As String
+            Dim parts = clip.Split(","c)
+            If parts.Length = 2 AndAlso IsNumeric(parts(0).Trim()) AndAlso IsNumeric(parts(1).Trim()) Then
+                ' Geldig lat,lon → trimmen
+                coord = TrimCoord(clip)
+            Else
+                ' Route-tekst (geen komma of ongeldig) → ongewijzigd
+                coord = clip
+            End If
+
+            tbCoordinaten.Text = coord
             tbCoordinaten.SelectAll()
-            UpdateDistance()  ' ← NIEUW
+            ' TextChanged triggert UpdateDistance automatisch
         Catch ex As Exception
-            MessageBox.Show("Fout: " & ex.Message)
+            MessageBox.Show("Fout bij klembord: " & ex.Message)
         End Try
     End Sub
+
+
     Private Sub btnRefresh_Click(sender As Object, e As EventArgs) Handles btnRefresh.Click
         LoadDevices()
         chbAllDevices.Checked = False
-        UpdateDistance()  ' ← Update lblKm na refresh
+        ' GEEN UpdateDistance hier nodig
     End Sub
     Private Sub btnStop_Click(sender As Object, e As EventArgs) Handles btnStop.Click
         If MessageBox.Show("App afsluiten?", "Bevestig", MessageBoxButtons.YesNo, MessageBoxIcon.Question) = DialogResult.Yes Then
@@ -136,78 +268,49 @@ Public Class HenkAdb
     Private Sub btnSaveCoord_Click(sender As Object, e As EventArgs) Handles btnSaveCoord.Click
         Dim huidigeCoord As String = tbCoordinaten.Text.Trim()
         If String.IsNullOrWhiteSpace(huidigeCoord) Then
-            MessageBox.Show("Geen coördinaat om op te slaan.")
+            MessageBox.Show("Geen coordinaat om op te slaan.")
             Return
         End If
 
-        Using f As New AddCoord()
-            ' Directe tekst-toewijzing ipv properties
+        Using f As New AddCoord
             f.tbCoord.Text = huidigeCoord
 
-            ' Positioneer 50px onder btnSaveCoord
+            ' Positioneer BOVEN btnSaveCoord
             Dim btnBounds = btnSaveCoord.Bounds
+            Dim btnScreenLoc = Me.PointToScreen(btnSaveCoord.Location)
+
             f.StartPosition = FormStartPosition.Manual
-            f.Location = New Point(Me.PointToScreen(btnSaveCoord.Location).X,
-                               Me.PointToScreen(btnSaveCoord.Location).Y + btnBounds.Height + 50)
+
+            Dim marge As Integer = 10
+            Dim x As Integer = btnScreenLoc.X
+            Dim y As Integer = btnScreenLoc.Y - f.Height - marge
+
+            If y < 0 Then y = 0
+
+            f.Location = New Point(x, y)
 
             If f.ShowDialog(Me) = DialogResult.OK Then
                 LoadKnownCoords()
             End If
         End Using
     End Sub
-    Private Function CalculateDistance(lat1 As Double, lon1 As Double, lat2 As Double, lon2 As Double) As Double
-        Dim R = 6371.0
-        Dim dLat = DegToRad(lat2 - lat1)
-        Dim dLon = DegToRad(lon2 - lon1)
-        Dim a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-            Math.Cos(DegToRad(lat1)) * Math.Cos(DegToRad(lat2)) *
-            Math.Sin(dLon / 2) * Math.Sin(dLon / 2)
-        Dim c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a))
-        Return Math.Round(R * c, 2)
-    End Function
-
-    Private Function DegToRad(degrees As Double) As Double
-        Return degrees * Math.PI / 180.0
-    End Function
-
-    ' Bovenin de class:
-    Private Function ParseCoord(coordText As String) As (lat As Double, lon As Double, isValid As Boolean)
-        Try
-            coordText = coordText.Trim()
-            Dim commaIndex = coordText.IndexOf(","c)
-            If commaIndex > 0 AndAlso commaIndex < coordText.Length - 1 Then
-                Dim latStr = coordText.Substring(0, commaIndex).Trim()
-                Dim lonStr = coordText.Substring(commaIndex + 1).Trim()
-                ' Replace comma met punt voor Double (NL fix)
-                latStr = latStr.Replace(",", ".")
-                lonStr = lonStr.Replace(",", ".")
-                Dim lat = Double.Parse(latStr, System.Globalization.CultureInfo.InvariantCulture)
-                Dim lon = Double.Parse(lonStr, System.Globalization.CultureInfo.InvariantCulture)
-                Return (lat, lon, True)
-            End If
-        Catch
-            ' Foutieve coördinaat
-        End Try
-        Return (0, 0, False)
-    End Function
 
     Private Sub tbCoordinaten_TextChanged(sender As Object, e As EventArgs) Handles tbCoordinaten.TextChanged
-        ' Update oldCoordText NA berekening (voor eerste keer wordt het 0km)
+        ' MessageBox.Show("OLD: " & oldCoordText & vbCrLf & "NEW: " & tbCoordinaten.Text)
         UpdateDistance()
-        oldCoordText = tbCoordinaten.Text  ' ← NU bijwerken
+        oldCoordText = tbCoordinaten.Text
     End Sub
 
     Private Sub UpdateDistance()
-        Dim current = ParseCoord(tbCoordinaten.Text.Trim())
-        Dim previous = ParseCoord(oldCoordText.Trim())  ' ← NU direct uit geheugen
+        Dim current = GPSHelper.ParseCoord(tbCoordinaten.Text.Trim())
+        Dim previous = GPSHelper.ParseCoord(oldCoordText.Trim())
 
         If current.isValid AndAlso previous.isValid Then
-            Dim distance = CalculateDistance(current.lat, current.lon, previous.lat, previous.lon)
-            lblKm.Text = distance.ToString("F2") + " km"
+            Dim distance = GPSHelper.CalculateDistance(current.lat, current.lon, previous.lat, previous.lon)
+            lblKm.Text = distance.ToString("F2") & " km"
             lblKm.ForeColor = Color.Blue
 
-            Dim cooldown = GetCooldownTime(distance)
-            lblCdTijd.Text = cooldown
+            lblCdTijd.Text = GPSHelper.GetCooldownTime(distance)
             lblCdTijd.ForeColor = Color.Green
         Else
             lblKm.Text = "0.00 km"
@@ -217,70 +320,185 @@ Public Class HenkAdb
         End If
     End Sub
 
-    Private Function GetCooldownTime(distanceKm As Double) As String
-        ' Jouw EXACTE tabel Afstand;Cooldown
-        Dim cooldownTable = {
-            (1, 1), (2, 1), (3, 2), (4, 2), (5, 3), (8, 4), (10, 6),
-            (15, 8), (20, 11), (25, 14), (30, 16), (35, 17), (40, 18),
-            (45, 19), (50, 20), (60, 21), (70, 22), (80, 23), (90, 24),
-            (100, 26), (125, 28), (150, 31), (175, 33), (201, 36),
-            (250, 41), (300, 46), (328, 48), (350, 49), (400, 54),
-            (450, 58), (500, 61), (550, 65), (600, 69), (650, 73),
-            (700, 76), (751, 81), (802, 83), (839, 88), (897, 90),
-            (948, 94), (1007, 97), (1100, 101), (1180, 109), (1221, 112),
-            (1300, 117), (1355, 119), (1403, 120)
-        }
-
-        ' Zoek EERSTVOLGENDE >= afstand (upper bound)
-        For i = 0 To cooldownTable.Length - 1
-            If distanceKm <= cooldownTable(i).Item1 Then
-                Return cooldownTable(i).Item2.ToString() + " min"
+    Private Function HaalCoördinatenUitURL(strUrl As String) As String  'Aanpassing 15 okt 2025
+        ' Controleer of de URL "place/" bevat
+        If strUrl.Contains("place/") Then
+            Dim parts() As String = strUrl.Split(New String() {"place/"}, StringSplitOptions.None)
+            If parts.Length > 1 Then
+                Return parts(1)
             End If
-        Next
+        End If
 
-        ' Groter dan laatste: gebruik laatste
-        Return cooldownTable(cooldownTable.Length - 1).Item2.ToString() + " min"
+        ' Controleer of de URL "?q=" bevat
+        If strUrl.Contains("?q=") Then
+            Dim parts() As String = strUrl.Split(New String() {"?q="}, StringSplitOptions.None)
+            If parts.Length > 1 Then
+                Return parts(1)
+            End If
+        End If
+
+        Console.WriteLine("Coördinaten niet gevonden in het juiste formaat.")
+        Return strUrl ' Optioneel: retourneer originele string als fallback
+    End Function
+
+    Private Function BegintMetHttps(str As String) As Boolean
+        Return str.StartsWith("https://")
+    End Function
+
+    Private Function TrimCoord(cCoord As String) As String
+        If Trim(cCoord) <> "" Then
+            ' Splits de string in de afzonderlijke coördinaten met de , als scheidingsteken
+            Dim delen() As String = cCoord.Split(","c)
+
+            If delen.Length < 2 Then
+                Return cCoord ' onvolledig → niks trimmen
+            End If
+
+            Dim strLatitude As String = delen(0).Substring(0, Math.Min(13, delen(0).Length))
+            Dim strLongitude As String = delen(1).Substring(0, Math.Min(13, delen(1).Length))
+
+            Dim strDeelLat() As String = strLatitude.Split("."c)
+            Dim strDeelLon() As String = strLongitude.Split("."c)
+
+            If strDeelLat.Length < 2 OrElse strDeelLon.Length < 2 Then
+                Return cCoord ' geen decimale notatie → niks trimmen
+            End If
+
+            Dim strLat As String = strDeelLat(0) & "." & strDeelLat(1).Substring(0, Math.Min(4, strDeelLat(1).Length))
+            Dim strLon As String = strDeelLon(0) & "." & strDeelLon(1).Substring(0, Math.Min(4, strDeelLon(1).Length))
+
+            ' Combineer de geformatteerde coördinaten weer in een enkele string
+            Return strLat & "," & strLon
+        Else
+            Return ""
+        End If
     End Function
     Private Sub LoadKnownCoords()
         dgvKnownCoord.Rows.Clear()
+        dgvKnownCoord.Columns.Clear()
 
+        ' 3 kolommen met VASTE breedtes
+        dgvKnownCoord.Columns.Add("Code", "Code")
+        dgvKnownCoord.Columns("Code").Width = 80
+        dgvKnownCoord.Columns("Code").AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+
+        dgvKnownCoord.Columns.Add("Coord", "Coördinaat")
+        dgvKnownCoord.Columns("Coord").Width = 150
+        dgvKnownCoord.Columns("Coord").AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+
+        dgvKnownCoord.Columns.Add("Omschrijving", "Omschrijving")
+        dgvKnownCoord.Columns("Omschrijving").AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+
+        dgvKnownCoord.RowHeadersVisible = False
+        dgvKnownCoord.AllowUserToAddRows = False
+
+        ' Bestand laden
         Dim appDir = Path.GetDirectoryName(Application.ExecutablePath)
         Dim filePath = Path.Combine(appDir, "CoordInfo.txt")
 
-        If Not File.Exists(filePath) Then
-            Return
-        End If
-
-        ' Zorg dat DGV kolommen heeft: Coord, Omschrijving
-        If dgvKnownCoord.Columns.Count = 0 Then
-            dgvKnownCoord.Columns.Add("Coord", "Coördinaat")
-            dgvKnownCoord.Columns.Add("Omschrijving", "Omschrijving")
-        Else
-            If dgvKnownCoord.Columns("Coord") Is Nothing Then
-                dgvKnownCoord.Columns.Add("Coord", "Coördinaat")
-            End If
-            If dgvKnownCoord.Columns("Omschrijving") Is Nothing Then
-                dgvKnownCoord.Columns.Add("Omschrijving", "Omschrijving")
-            End If
-        End If
+        If Not File.Exists(filePath) Then Return
 
         Dim lines = File.ReadAllLines(filePath)
         For Each line In lines
             If String.IsNullOrWhiteSpace(line) Then Continue For
             Dim parts = line.Split("|"c)
-            Dim coord As String = parts(0)
-            Dim oms As String = If(parts.Length > 1, parts(1), "")
-            dgvKnownCoord.Rows.Add(coord, oms)
+            If parts.Length >= 3 Then
+                dgvKnownCoord.Rows.Add(parts(0).Trim(), parts(1).Trim(), parts(2).Trim())
+            End If
         Next
-
-        dgvKnownCoord.RowHeadersVisible = False
-        dgvKnownCoord.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
     End Sub
+
     Private Sub dgvKnownCoord_CellDoubleClick(sender As Object, e As DataGridViewCellEventArgs) Handles dgvKnownCoord.CellDoubleClick
         If e.RowIndex < 0 Then Return
-        Dim coord As String = dgvKnownCoord.Rows(e.RowIndex).Cells("Coord").Value.ToString()
-        tbCoordinaten.Text = coord
+        tbCoordinaten.Text = dgvKnownCoord.Rows(e.RowIndex).Cells("Coord").Value.ToString()
     End Sub
 
+    Private Sub tbFilter_TextChanged(sender As Object, e As EventArgs) Handles tbFilter.TextChanged
+        FilterCoordinaatLijst()
+    End Sub
+
+    Private Sub btnClearFilter_Click(sender As Object, e As EventArgs) Handles btnClearFilter.Click
+        tbFilter.Clear()    ' ← Leegmaken
+        FilterCoordinaatLijst()
+    End Sub
+    Private Sub FilterCoordinaatLijst()
+        Dim filterText = tbFilter.Text.Trim().ToLower()
+
+        For Each row As DataGridViewRow In dgvKnownCoord.Rows
+            ' ← NIEUW: Alleen echte rijen filteren (geen "new row")
+            If row.IsNewRow Then Continue For
+
+            Dim codeValue = row.Cells("Code").Value
+            Dim code = If(codeValue IsNot Nothing, codeValue.ToString().ToLower(), "")
+
+            Dim visible = String.IsNullOrEmpty(filterText) OrElse code.Contains(filterText)
+            row.Visible = visible
+        Next
+    End Sub
+    Private Sub CleanupHistorie()
+        Dim historiePath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "Historie.txt")
+        If Not File.Exists(historiePath) Then Return
+
+        Dim grens As DateTime = DateTime.Now.AddDays(-2)
+        Dim allLines = File.ReadAllLines(historiePath)
+        Dim behouden As New List(Of String)
+        Dim verwijderd As Integer = 0
+
+        For Each line In allLines
+            If String.IsNullOrWhiteSpace(line) Then Continue For
+
+            Dim parts = line.Split("|"c)
+            If parts.Length < 3 Then
+                ' Ongeldig formaat → bewaren
+                behouden.Add(line)
+                Continue For
+            End If
+
+            Dim datumStr = parts(0).Trim()
+            Dim omschrijving = parts(2).Trim()
+            Dim datumWaarde As DateTime
+
+            ' Alleen verwijderen als: datum lukt te parsen ÉN ouder dan 2 dagen ÉN omschrijving leeg
+            If DateTime.TryParse(datumStr, datumWaarde) Then
+                If datumWaarde < grens AndAlso String.IsNullOrEmpty(omschrijving) Then
+                    verwijderd += 1
+                    Continue For
+                End If
+            End If
+
+            behouden.Add(line)
+        Next
+
+        If verwijderd > 0 Then
+            File.WriteAllLines(historiePath, behouden.ToArray())
+            Logger.Log($"Historie cleanup: {verwijderd} oude records zonder omschrijving verwijderd")
+        Else
+            Logger.Log("Historie cleanup: niets te verwijderen")
+        End If
+    End Sub
+
+    Private Sub btnHistorie_Click(sender As Object, e As EventArgs) Handles btnHistorie.Click
+        Dim f As New frmHistorie(Me)
+
+        ' ← RECHTS VAN HENKADB (gelijke hoogte)
+        f.StartPosition = FormStartPosition.Manual
+
+        ' Screen coördinaten HenkAdb
+        Dim myScreenLoc = Me.PointToScreen(New Point(0, 0))
+        Dim myWidth = Me.Width
+        Dim myHeight = Me.Height
+
+        ' Rechts + kleine marge
+        f.Location = New Point(
+            myScreenLoc.X + myWidth + 10,  ' ← RECHTS van HenkAdb
+            myScreenLoc.Y                   ' ← ZELFDE HOOGTE
+        )
+
+        ' Grootte aanpassen (bijv. 600x400)
+        'f.Size = New Size(600, 400)
+        'f.WindowState = FormWindowState.Normal
+
+        f.Show()  ' ← Niet ShowDialog (kan naast blijven)
+    End Sub
 
 End Class

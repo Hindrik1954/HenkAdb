@@ -97,4 +97,13 @@ Public Class Toestellen
     Private Sub btnAnnuleer_Click(sender As Object, e As EventArgs) Handles btnAnnuleer.Click
         Me.Close()
     End Sub
+
+    Private Sub btnControle_Click(sender As Object, e As EventArgs) Handles btnControle.Click
+        Dim devices = AdbHelper.GetDevices()
+        If devices.Count = 0 Then
+            MessageBox.Show("Geen devices gekoppeld! Sluit USB debug aan.")
+            Return
+        End If
+
+    End Sub
 End Class

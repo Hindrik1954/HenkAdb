@@ -28,6 +28,7 @@ Partial Class Toestellen
         Me.btnAnnuleer = New System.Windows.Forms.Button()
         Me.cbKiesAlle = New System.Windows.Forms.CheckBox()
         Me.btnStopServer = New System.Windows.Forms.Button()
+        Me.btnControle = New System.Windows.Forms.Button()
         CType(Me.dgvToestellen, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -87,11 +88,21 @@ Partial Class Toestellen
         Me.btnStopServer.Text = "Stop server"
         Me.btnStopServer.UseVisualStyleBackColor = True
         '
+        'btnControle
+        '
+        Me.btnControle.Location = New System.Drawing.Point(205, 211)
+        Me.btnControle.Name = "btnControle"
+        Me.btnControle.Size = New System.Drawing.Size(75, 23)
+        Me.btnControle.TabIndex = 6
+        Me.btnControle.Text = "Controle"
+        Me.btnControle.UseVisualStyleBackColor = True
+        '
         'Toestellen
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(288, 243)
+        Me.Controls.Add(Me.btnControle)
         Me.Controls.Add(Me.btnStopServer)
         Me.Controls.Add(Me.cbKiesAlle)
         Me.Controls.Add(Me.btnAnnuleer)
@@ -112,4 +123,5 @@ Partial Class Toestellen
     Friend WithEvents btnAnnuleer As Button
     Friend WithEvents cbKiesAlle As CheckBox
     Friend WithEvents btnStopServer As Button
+    Friend WithEvents btnControle As Button
 End Class

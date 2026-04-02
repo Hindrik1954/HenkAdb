@@ -47,6 +47,9 @@
   <PropertyGroup>
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>verbinding.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -80,10 +83,18 @@
     <Compile Include="AddCoord.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FormPositionHelper.vb" />
+    <Compile Include="GPSHelper.vb" />
     <Compile Include="HenkAdb.vb" />
-    <Compile Include="Start.vb">
+    <Compile Include="Historie.Designer.vb">
+      <DependentUpon>Historie.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Historie.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="IniFile.vb" />
+    <Compile Include="Logger.vb" />
+    <Compile Include="Start.vb" />
     <Compile Include="Start.Designer.vb">
       <DependentUpon>Start.vb</DependentUpon>
       <SubType>Form</SubType>
@@ -115,6 +126,9 @@
     <EmbeddedResource Include="AddCoord.resx">
       <DependentUpon>AddCoord.vb</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Historie.resx">
+      <DependentUpon>Historie.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Start.resx">
       <DependentUpon>Start.vb</DependentUpon>
     </EmbeddedResource>
@@ -139,6 +153,9 @@
       <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="verbinding.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

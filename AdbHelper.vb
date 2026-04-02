@@ -16,19 +16,20 @@ Public Module AdbHelper
             m_AdbPath = value
             If Not value.EndsWith("adb.exe") Then m_AdbPath &= "\adb.exe"
             If ini IsNot Nothing Then
-                ini.WriteString("Settings", "PadAdb", m_AdbPath)
+                'ini.WriteString("Settings", "PadAdb", m_AdbPath)
+                ini.WriteValue("Settings", "PadAdb", m_AdbPath)
             End If
         End Set
     End Property
 
-    Public Sub InitializeAdbPath()  ' ← MAK PUBLIC
+    Public Sub InitializeAdbPath()
         If ini Is Nothing Then
             ini = New IniFile(GetIniPath())
-            AdbPath = ini.ReadString("Settings", "PadAdb", "")
+            m_AdbPath = ini.ReadValue("Settings", "PadAdb", "")  ' ← direct m_AdbPath invullen!
         End If
 
-        ' Valideer path
-        If String.IsNullOrEmpty(AdbPath) OrElse Not File.Exists(AdbPath) Then
+        ' Valideer direct op backing field
+        If String.IsNullOrEmpty(m_AdbPath) OrElse Not File.Exists(m_AdbPath) Then
             SelectAdbPath()
         End If
 
@@ -42,6 +43,7 @@ Public Module AdbHelper
             SelectAdbPath()
         End Try
     End Sub
+
 
 
     Private Function GetIniPath() As String
@@ -70,6 +72,7 @@ Public Module AdbHelper
 
     ' Bestaande functies blijven identiek:
     Public Function RunAdbCommand(arguments As String) As String
+        Logger.Log($"ADB CALL: {AdbPath} {arguments}")
         Dim psi As New ProcessStartInfo()
         psi.FileName = AdbPath
         psi.Arguments = arguments
@@ -77,26 +80,32 @@ Public Module AdbHelper
         psi.RedirectStandardOutput = True
         psi.RedirectStandardError = True
         psi.CreateNoWindow = True
+
         Using p As New Process()
             p.StartInfo = psi
             p.Start()
             Dim output As String = p.StandardOutput.ReadToEnd()
             Dim err As String = p.StandardError.ReadToEnd()
             p.WaitForExit()
-            Return output & If(String.IsNullOrEmpty(err), "", Environment.NewLine & err)
+            Dim result = output & If(String.IsNullOrEmpty(err), "", Environment.NewLine & err)
+            Dim logLevel = If(err.Length > 0, "WARN", "INFO")
+            Logger.Log($"ADB RESULT ({logLevel}): {result.Trim()}", logLevel)
+            Return result
         End Using
     End Function
-
     Public Function GetDevices() As List(Of String)
+        Logger.Log("Fetching ADB devices...")
         Dim result As String = RunAdbCommand("devices")
         Dim lines = result.Split({ControlChars.Lf, ControlChars.Cr}, StringSplitOptions.RemoveEmptyEntries)
         Dim list As New List(Of String)
+
         For Each line In lines
             If line.Contains("device") AndAlso Not line.StartsWith("List of devices") Then
                 Dim parts = line.Split(ControlChars.Tab)
                 If parts.Length > 0 Then list.Add(parts(0))
             End If
         Next
+        Logger.Log($"Found {list.Count} online devices: [{String.Join(", ", list)}]")
         Return list
     End Function
 
@@ -111,4 +120,17 @@ Public Module AdbHelper
         Dim args As String = $"-s {deviceId} shell am startservice -a theappninjas.gpsjoystick.ROUTE --es name ""{routeName}"""
         RunAdbCommand(args)
     End Sub
+
+    Public Function IsDeviceConnected(deviceId As String) As Boolean
+        Dim devices = GetDevices()
+        Return devices.Contains(deviceId)
+    End Function
+
+    Public Function GetDeviceStatus(deviceId As String) As String
+        Dim result = RunAdbCommand($"-s {deviceId} get-state")
+        If result.Contains("device") Then Return "online"
+        If result.Contains("offline") Or result.Contains("unauthorized") Then Return result.Trim()
+        Return "unknown/not connected"
+    End Function
+
 End Module
