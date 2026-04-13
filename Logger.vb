@@ -8,21 +8,12 @@ Public Module Logger
     Private Const BewaarDagen As Integer = 2
 
     Public Sub Log(message As String, Optional level As String = "INFO")
-        Dim timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
-        Dim logLine = $"[{timestamp}] [{level}] {message}{Environment.NewLine}"
+            ' Logging uitgeschakeld
+        End Sub
 
-        Try
-            CleanupOudeLogs()  ' ← NIEUW: Ruim op vóór append
-            RotateLogIfNeeded()
-            File.AppendAllText(logPath, logLine)
-        Catch ex As Exception
-            ' Silent fail voor logging
-        End Try
-    End Sub
-
-    Public Sub LogError(ex As Exception, context As String)
-        Log($"ERROR in {context}: {ex.Message}{Environment.NewLine}{ex.StackTrace}", "ERROR")
-    End Sub
+        Public Sub LogError(ex As Exception, context As String)
+            ' Logging uitgeschakeld
+        End Sub
 
     ' ← NIEUW: Verwijder regels ouder dan 2 dagen
     Private Sub CleanupOudeLogs()

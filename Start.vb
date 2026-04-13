@@ -104,7 +104,10 @@ Public Class HenkAdb
 
     Private Sub btnStart_Click(sender As Object, e As EventArgs) Handles btnStart.Click
         Logger.Log("=== btnStart CLICKED ===")
-        Dim inputText As String = tbCoordinaten.Text.Trim()
+        SendInputToSelectedDevices(tbCoordinaten.Text.Trim())
+    End Sub
+
+    Private Sub SendInputToSelectedDevices(inputText As String)
         If String.IsNullOrWhiteSpace(inputText) Then
             Logger.Log("Empty input - abort")
             MessageBox.Show("Vul coordinaat of routenaam in.")
@@ -112,7 +115,7 @@ Public Class HenkAdb
             Return
         End If
 
-        Dim devices = AdbHelper.GetDevices() ' ← Logt automatisch
+        Dim devices = AdbHelper.GetDevices()
         If devices.Count = 0 Then
             Logger.Log("NO DEVICES CONNECTED - ABORT", "ERROR")
             MessageBox.Show("Geen devices gekoppeld! Sluit USB debug aan.")
@@ -123,7 +126,6 @@ Public Class HenkAdb
         Dim succesvol = 0
         Dim totalChecked = 0
 
-        ' Eerst tellen welke devices geselecteerd zijn
         Dim selectedDevices As New List(Of String)
         For Each row As DataGridViewRow In dgvDevices.Rows
             If row.Cells("Select").Value = True Then
@@ -131,6 +133,7 @@ Public Class HenkAdb
                 selectedDevices.Add(deviceId)
             End If
         Next
+
         totalChecked = selectedDevices.Count
 
         If totalChecked = 0 Then
@@ -138,7 +141,6 @@ Public Class HenkAdb
             Return
         End If
 
-        ' Als het route is (geen coordinaat) gewoon 1x sturen zoals eerst
         If parts.Length <> 2 Then
             For Each deviceId In selectedDevices
                 Logger.Log($"Sending ROUTE '{inputText}' to {deviceId}")
@@ -151,13 +153,11 @@ Public Class HenkAdb
                 End Try
             Next
         Else
-            ' Coördinaat: A -> offset -> A, steeds voor ALLE devices tegelijk
             Dim lat As String = parts(0).Trim()
             Dim lon As Double = Double.Parse(parts(1).Trim(), Globalization.CultureInfo.InvariantCulture)
             Dim lonOrig As String = lon.ToString(Globalization.CultureInfo.InvariantCulture)
             Dim lonOffset As String = (lon + 0.00001).ToString(Globalization.CultureInfo.InvariantCulture)
 
-            ' Stap 1: alle devices naar A
             For Each deviceId In selectedDevices
                 Logger.Log($"Step 1 (A) '{lat},{lonOrig}' to {deviceId}")
                 Try
@@ -168,7 +168,6 @@ Public Class HenkAdb
             Next
             Threading.Thread.Sleep(200)
 
-            ' Stap 2: alle devices naar A+offset
             For Each deviceId In selectedDevices
                 Logger.Log($"Step 2 (A+offset) '{lat},{lonOffset}' to {deviceId}")
                 Try
@@ -179,12 +178,11 @@ Public Class HenkAdb
             Next
             Threading.Thread.Sleep(200)
 
-            ' Stap 3: alle devices terug naar A
             For Each deviceId In selectedDevices
                 Logger.Log($"Step 3 (A) '{lat},{lonOrig}' to {deviceId}")
                 Try
                     AdbHelper.SendTeleportToDevice(deviceId, lat, lonOrig)
-                    succesvol += 1 ' eindstatus gelukt
+                    succesvol += 1
                     Logger.Log($"✓ SUCCESS {deviceId}")
                 Catch ex As Exception
                     Logger.LogError(ex, $"Step3 to {deviceId}")
@@ -192,13 +190,31 @@ Public Class HenkAdb
             Next
         End If
 
-        Logger.Log($"btnStart FINISHED: {succesvol}/{totalChecked} success, {devices.Count} total devices")
+        Logger.Log($"SendInputToSelectedDevices FINISHED: {succesvol}/{totalChecked} success, {devices.Count} total devices")
+
         Dim historiePath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "Historie.txt")
         Dim logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}|{inputText}|"
         File.AppendAllText(historiePath, logLine & Environment.NewLine)
         Logger.Log($"Historie toegevoegd: {logLine.TrimEnd()}")
     End Sub
+    Private Sub dgvKnownCoord_CellMouseDown(sender As Object, e As DataGridViewCellMouseEventArgs) Handles dgvKnownCoord.CellMouseDown
+        If e.RowIndex < 0 Then Return
 
+        If e.Button = MouseButtons.Right Then
+            dgvKnownCoord.ClearSelection()
+            dgvKnownCoord.Rows(e.RowIndex).Selected = True
+            dgvKnownCoord.CurrentCell = dgvKnownCoord.Rows(e.RowIndex).Cells("Coord")
+
+            Dim coordValue = dgvKnownCoord.Rows(e.RowIndex).Cells("Coord").Value
+            If coordValue Is Nothing Then Return
+
+            Dim coord As String = coordValue.ToString().Trim()
+            If String.IsNullOrWhiteSpace(coord) Then Return
+
+            tbCoordinaten.Text = coord
+            SendInputToSelectedDevices(coord)
+        End If
+    End Sub
 
     Private Sub btnToestellen_Click(sender As Object, e As EventArgs) Handles btnToestellen.Click
         Dim f As New Toestellen()
