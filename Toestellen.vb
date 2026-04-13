@@ -70,20 +70,44 @@ Public Class Toestellen
     Private Sub btnOntkoppel_Click(sender As Object, e As EventArgs) Handles btnOntkoppel.Click
         VoerConnect("disconnect")
     End Sub
+    'Private Sub VoerConnect(cmd As String)
+    '    Dim count = 0
+    '    For Each r As DataGridViewRow In dgvToestellen.Rows
+    '        Dim chk As Boolean = False
+    '        Boolean.TryParse(r.Cells("Select").Value?.ToString(), chk)
+    '        If chk Then
+    '            Dim conn = r.Cells("Conn").Value.ToString()
+    '            AdbHelper.RunAdbCommand(cmd & " " & conn)
+    '            count += 1
+    '        End If
+    '    Next
+    '    MessageBox.Show(count & " toestel(len) " & cmd & "ed!")
+    '    Me.Close()
+    'End Sub
     Private Sub VoerConnect(cmd As String)
         Dim count = 0
+
         For Each r As DataGridViewRow In dgvToestellen.Rows
             Dim chk As Boolean = False
             Boolean.TryParse(r.Cells("Select").Value?.ToString(), chk)
+
             If chk Then
                 Dim conn = r.Cells("Conn").Value.ToString()
+
+                If cmd = "connect" Then
+                    Dim portAdres As String = conn.Split(":"c).Last()
+                    AdbHelper.RunAdbCommand("-d tcpip " & portAdres)
+                End If
+
                 AdbHelper.RunAdbCommand(cmd & " " & conn)
                 count += 1
             End If
         Next
+
         MessageBox.Show(count & " toestel(len) " & cmd & "ed!")
         Me.Close()
     End Sub
+
     Private Sub btnStopServer_Click(sender As Object, e As EventArgs) Handles btnStopServer.Click
         Try
             AdbHelper.RunAdbCommand("kill-server")

@@ -94,7 +94,9 @@
     </Compile>
     <Compile Include="IniFile.vb" />
     <Compile Include="Logger.vb" />
-    <Compile Include="Start.vb" />
+    <Compile Include="Start.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Start.Designer.vb">
       <DependentUpon>Start.vb</DependentUpon>
       <SubType>Form</SubType>
