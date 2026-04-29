@@ -42,6 +42,7 @@ Partial Class HenkAdb
         Me.tbFilter = New System.Windows.Forms.TextBox()
         Me.btnClearFilter = New System.Windows.Forms.Button()
         Me.btnHistorie = New System.Windows.Forms.Button()
+        Me.btnGyms = New System.Windows.Forms.Button()
         CType(Me.dgvDevices, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.dgvKnownCoord, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
@@ -92,9 +93,9 @@ Partial Class HenkAdb
         '
         'btnRefresh
         '
-        Me.btnRefresh.Location = New System.Drawing.Point(348, 389)
+        Me.btnRefresh.Location = New System.Drawing.Point(334, 389)
         Me.btnRefresh.Name = "btnRefresh"
-        Me.btnRefresh.Size = New System.Drawing.Size(86, 34)
+        Me.btnRefresh.Size = New System.Drawing.Size(64, 34)
         Me.btnRefresh.TabIndex = 8
         Me.btnRefresh.Text = "Verversen"
         Me.btnRefresh.UseVisualStyleBackColor = True
@@ -129,9 +130,9 @@ Partial Class HenkAdb
         '
         'btnStop
         '
-        Me.btnStop.Location = New System.Drawing.Point(557, 389)
+        Me.btnStop.Location = New System.Drawing.Point(583, 389)
         Me.btnStop.Name = "btnStop"
-        Me.btnStop.Size = New System.Drawing.Size(86, 34)
+        Me.btnStop.Size = New System.Drawing.Size(64, 34)
         Me.btnStop.TabIndex = 14
         Me.btnStop.Text = "Stop"
         Me.btnStop.UseVisualStyleBackColor = True
@@ -164,9 +165,9 @@ Partial Class HenkAdb
         '
         'btnSaveCoord
         '
-        Me.btnSaveCoord.Location = New System.Drawing.Point(256, 389)
+        Me.btnSaveCoord.Location = New System.Drawing.Point(251, 389)
         Me.btnSaveCoord.Name = "btnSaveCoord"
-        Me.btnSaveCoord.Size = New System.Drawing.Size(86, 34)
+        Me.btnSaveCoord.Size = New System.Drawing.Size(64, 34)
         Me.btnSaveCoord.TabIndex = 18
         Me.btnSaveCoord.Text = "Save coord"
         Me.btnSaveCoord.UseVisualStyleBackColor = True
@@ -207,12 +208,21 @@ Partial Class HenkAdb
         '
         'btnHistorie
         '
-        Me.btnHistorie.Location = New System.Drawing.Point(440, 389)
+        Me.btnHistorie.Location = New System.Drawing.Point(417, 389)
         Me.btnHistorie.Name = "btnHistorie"
-        Me.btnHistorie.Size = New System.Drawing.Size(85, 34)
+        Me.btnHistorie.Size = New System.Drawing.Size(64, 34)
         Me.btnHistorie.TabIndex = 23
         Me.btnHistorie.Text = "Historie"
         Me.btnHistorie.UseVisualStyleBackColor = True
+        '
+        'btnGyms
+        '
+        Me.btnGyms.Location = New System.Drawing.Point(500, 389)
+        Me.btnGyms.Name = "btnGyms"
+        Me.btnGyms.Size = New System.Drawing.Size(64, 34)
+        Me.btnGyms.TabIndex = 24
+        Me.btnGyms.Text = "Gyms"
+        Me.btnGyms.UseVisualStyleBackColor = True
         '
         'HenkAdb
         '
@@ -220,6 +230,7 @@ Partial Class HenkAdb
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.SystemColors.Control
         Me.ClientSize = New System.Drawing.Size(660, 432)
+        Me.Controls.Add(Me.btnGyms)
         Me.Controls.Add(Me.btnHistorie)
         Me.Controls.Add(Me.btnClearFilter)
         Me.Controls.Add(Me.tbFilter)
@@ -268,4 +279,5 @@ Partial Class HenkAdb
     Friend WithEvents tbFilter As TextBox
     Friend WithEvents btnClearFilter As Button
     Friend WithEvents btnHistorie As Button
+    Friend WithEvents btnGyms As Button
 End Class
