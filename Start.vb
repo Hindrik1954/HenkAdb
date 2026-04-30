@@ -10,6 +10,8 @@ Public Class HenkAdb
         ini = New IniFile(iniPath)
         LoadFormPosition(Me, ini)
 
+        btnDB.Visible = False
+
         Logger.Log("=== APP STARTED ===")
 
         Logger.Log("App gestart - Cleanup logs uitgevoerd")
@@ -516,5 +518,23 @@ Public Class HenkAdb
 
         f.Show()  ' ← Niet ShowDialog (kan naast blijven)
     End Sub
+    Private Sub btnGyms_Click(sender As Object, e As EventArgs) Handles btnGyms.Click
+        Using f As New frmGyms(Me)
+            f.StartPosition = FormStartPosition.Manual
 
+            Dim btnScreenLoc As Point = Me.PointToScreen(btnGyms.Location)
+            Dim marge As Integer = 10
+            Dim x As Integer = btnScreenLoc.X
+            Dim y As Integer = btnScreenLoc.Y - f.Height - marge
+
+            If y < 0 Then y = 0
+            f.Location = New Point(x, y)
+
+            f.ShowDialog(Me)
+        End Using
+    End Sub
+
+    Private Sub btnDB_Click(sender As Object, e As EventArgs) Handles btnDB.Click
+        MessageBox.Show("Voor connectie met database gebruik DbConfig helper")
+    End Sub
 End Class

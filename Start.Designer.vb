@@ -43,6 +43,7 @@ Partial Class HenkAdb
         Me.btnClearFilter = New System.Windows.Forms.Button()
         Me.btnHistorie = New System.Windows.Forms.Button()
         Me.btnGyms = New System.Windows.Forms.Button()
+        Me.btnDB = New System.Windows.Forms.Button()
         CType(Me.dgvDevices, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.dgvKnownCoord, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
@@ -224,12 +225,22 @@ Partial Class HenkAdb
         Me.btnGyms.Text = "Gyms"
         Me.btnGyms.UseVisualStyleBackColor = True
         '
+        'btnDB
+        '
+        Me.btnDB.Location = New System.Drawing.Point(136, 397)
+        Me.btnDB.Name = "btnDB"
+        Me.btnDB.Size = New System.Drawing.Size(75, 23)
+        Me.btnDB.TabIndex = 25
+        Me.btnDB.Text = "DB enc"
+        Me.btnDB.UseVisualStyleBackColor = True
+        '
         'HenkAdb
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.SystemColors.Control
         Me.ClientSize = New System.Drawing.Size(660, 432)
+        Me.Controls.Add(Me.btnDB)
         Me.Controls.Add(Me.btnGyms)
         Me.Controls.Add(Me.btnHistorie)
         Me.Controls.Add(Me.btnClearFilter)
@@ -280,4 +291,5 @@ Partial Class HenkAdb
     Friend WithEvents btnClearFilter As Button
     Friend WithEvents btnHistorie As Button
     Friend WithEvents btnGyms As Button
+    Friend WithEvents btnDB As Button
 End Class

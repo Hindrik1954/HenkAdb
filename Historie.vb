@@ -6,12 +6,12 @@ Imports System.Drawing
 
 Public Class frmHistorie
     Private historiePath As String
-    Private parentForm As HenkAdb
+    Private _henkAdbForm As HenkAdb
     Private ini As IniFile
 
     Public Sub New(parent As HenkAdb)
         InitializeComponent()
-        Me.parentForm = parent
+        Me._henkAdbForm = parent
         historiePath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "Historie.txt")
     End Sub
 
@@ -84,7 +84,7 @@ Public Class frmHistorie
         If e.RowIndex >= 0 Then
             Dim coord = dgvHistorie.Rows(e.RowIndex).Cells("Coordinaat").Value?.ToString()
             If Not String.IsNullOrEmpty(coord) Then
-                parentForm.tbCoordinaten.Text = coord
+                _henkAdbForm.tbCoordinaten.Text = coord
             End If
             Me.Close()
         End If
